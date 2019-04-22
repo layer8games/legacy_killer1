@@ -1,0 +1,257 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Drawing;
+using Killer1;
+
+namespace GraxiaIV
+{
+    class EntityManager
+    {
+    	List<Enemy> _enemies = new List<Enemy>();
+    	public List<EnemyDef> UpComingEnemies = new List<EnemyDef>();
+    	public List<Enemy> EnemyList
+    	{
+    		get {return _enemies;}
+    	}
+    	int _leftBound;
+
+    	List<Bullet> _playerBullets = new List<Bullet>();
+    	List<Bullet> _enemyBullets = new List<Bullet>();
+    	RectangleF _bulletBounds;
+
+    	List<AnimatedSprite> _effects = new List<AnimatedSprite>();
+
+    	TextureManager _textureManager;
+    	SoundManager   _soundManager;
+
+    	public EntityManager(TextureManager textureManager, SoundManager soundManager, RectangleF playerArea, int leftBound)
+    	{
+    		_textureManager = textureManager;
+    		_soundManager 	= soundManager;
+    		_bulletBounds 	= playerArea;
+    		_leftBound 		= leftBound;
+    	}
+
+    	public void Update(double elapsedTime, double gameTime)
+    	{
+    		UpdateEnemySpawns(gameTime);
+    		_enemies.ForEach(x => x.Update(elapsedTime));
+    		_playerBullets.ForEach(x => x.Update(elapsedTime));
+    		_enemyBullets.ForEach(x => x.Update(elapsedTime));
+    		_effects.ForEach(x => x.Update(elapsedTime));
+    		CheckForOutOfBounds();
+    		RemoveDead();
+    	}
+
+    	public void Render(Renderer renderer)
+    	{
+    		_enemies.ForEach(x => x.Render(renderer));
+    		_playerBullets.ForEach(x => x.Render(renderer));
+    		_enemyBullets.ForEach(x => x.Render(renderer));
+    		_effects.ForEach(x => renderer.DrawSprite(x));
+    	}
+
+    	private void CheckForOutOfBounds()
+    	{
+    		foreach(Enemy enemy in _enemies)
+    		{
+    			if(enemy.GetBoundingBox().Right < _leftBound)
+    			{
+    				enemy.Health = 0;
+    			}
+    		}
+
+    		foreach(Bullet bullet in _playerBullets)
+    		{
+    			if(!bullet.GetBoundingBox().IntersectsWith(_bulletBounds))
+    			{
+    				bullet.Dead = true;
+    			}
+    		}
+
+    		foreach(Bullet bullet in _enemyBullets)
+    		{
+    			if(!bullet.GetBoundingBox().IntersectsWith(_bulletBounds))
+    			{
+    				bullet.Dead = true;
+    			}
+    		}
+
+    		for(int i = _effects.Count - 1; i >= 0; i--)
+    		{
+    			if(_effects[i].Finished)
+    			{
+    				_effects.RemoveAt(i);
+    			}
+    		}
+    	}
+
+    	private void RemoveDead()
+    	{
+    		for(int i = _enemies.Count - 1; i >= 0; i--)
+    		{
+    			if(_enemies[i].IsDead)
+    			{
+    				_enemies.RemoveAt(i);
+    			}
+    		}
+
+    		for(int i = _playerBullets.Count - 1; i >= 0; i--)
+    		{
+    			if(_playerBullets[i].Dead)
+    			{
+    				_playerBullets.RemoveAt(i);
+    			}
+    		}
+
+    		for(int i = _enemyBullets.Count - 1; i >= 0; i--)
+    		{
+    			if(_enemyBullets[i].Dead)
+    			{
+    				_enemyBullets.RemoveAt(i);
+    			}
+    		}
+
+    		for(int i = _effects.Count - 1; i >= 0; i--)
+    		{
+    			if(_effects[i].Finished)
+    			{
+    				_effects.RemoveAt(i);
+    			}
+    		}
+    	}	
+
+//Enemy Methods
+    		private void UpdateEnemySpawns(double gameTime)
+	    	{
+	    		if(UpComingEnemies.Count == 0)
+	    		{
+	    			return;
+	    		}
+
+	    		EnemyDef lastElement = UpComingEnemies[UpComingEnemies.Count - 1];
+	    		if(gameTime < lastElement.LaunchTime)
+	    		{
+	    			UpComingEnemies.RemoveAt(UpComingEnemies.Count - 1);
+	    			_enemies.Add(CreateEnemyFromDef(lastElement));
+	    		}
+	    	}
+
+	    	private Enemy CreateEnemyFromDef(EnemyDef enemyDef)
+	    	{
+	    		Enemy enemy = new Enemy(_textureManager, _en, _soundManager);
+
+	    		if(enemyDef.EnemyType == "cannon_fodder")
+	    		{
+	    			List<Vector> _pathPoints = new List<Vector>();
+	    			_pathPoints.Add(new Vector(1400,0,0));
+	    			_pathPoints.Add(new Vector(0,250,0));
+	    			_pathPoints.Add(new Vector(-1400,0,0));
+
+	    			enemy.Path = new Path(_pathPoints, 10);
+	    		}
+	    		else if(enemyDef.EnemyType == "cannon_fodder_low")
+	    		{
+	    			List<Vector> _pathPoints = new List<Vector>();
+	    			_pathPoints.Add(new Vector(1400,0,0));
+	    			_pathPoints.Add(new Vector(0,-250,0));
+	    			_pathPoints.Add(new Vector(-1400,0,0));
+
+	    			enemy.Path = new Path(_pathPoints, 10);
+	    		}
+	    		else if(enemyDef.EnemyType == "cannon_fodder_straight")
+	    		{
+	    			List<Vector> _pathPoints = new List<Vector>();
+	    			_pathPoints.Add(new Vector(1400,0,0));
+	    			_pathPoints.Add(new Vector(-1400,0,0));
+
+	    			enemy.Path = new Path(_pathPoints, 14);
+	    		}
+	    		else if(enemyDef.EnemyType == "up_1")
+	    		{
+	    			List<Vector> _pathPoints= new List<Vector>();
+	    			_pathPoints.Add(new Vector(500,-375,0));
+	    			_pathPoints.Add(new Vector(500,0,0));
+	    			_pathPoints.Add(new Vector(500,0,0));
+	    			_pathPoints.Add(new Vector(-1400,200,0));
+
+	    			enemy.Path = new Path(_pathPoints, 10);
+	    		}
+	    		else if(enemyDef.EnemyType == "down_1")
+	    		{
+	    			List<Vector> _pathPoints = new List<Vector>();
+	    			_pathPoints.Add(new Vector(500,375,0));
+	    			_pathPoints.Add(new Vector(500,0,0));
+	    			_pathPoints.Add(new Vector(500,0,0));
+	    			_pathPoints.Add(new Vector(-1400,-200,0));
+
+	    			enemy.Path = new Path(_pathPoints, 10);
+	    		}
+	            else if(enemyDef.EnemyType == "test_for_points")
+	            {
+	                List<Vector> _pathPoints = new List<Vector>();
+	                _pathPoints.Add(new Vector(500,0,0));
+	                _pathPoints.Add(new Vector(0,0,0));
+	                _pathPoints.Add(new Vector(0,100,0));
+	                _pathPoints.Add(new Vector(-250,375,0));
+	                _pathPoints.Add(new Vector(-1400,375,0));
+
+	                enemy.Path = new Path(_pathPoints, 5);
+	            }
+	    		else
+	    		{
+	    			System.Diagnostics.Debug.Assert(false, "Unknown Enemy Type.");
+	    		}
+	    		return enemy;
+	    	}//End Enemy Methods
+
+//Bullet Methods
+			public void Shoot(Bullet bullet)
+	    	{
+	    		_bullets.Add(bullet);
+	    	}
+
+	        public void EnemyShoot(Bullet bullet)
+	        {
+	            _enemyBullets.Add(bullet);
+	        }
+
+			public void UpdatePlayerCollisions(PlayerCharacter playerCharacter)
+	        {
+	            foreach(Bullet bullet in _enemyBullets)
+	            {
+	                if(bullet.GetBoundingBox().IntersectsWith(playerCharacter.GetBoundingBox()))
+	                {
+	                    bullet.Dead = true;
+	                    playerCharacter.OnCollision(bullet);
+	                }
+	            }
+	        }
+
+	        internal void UpdateEnemyCollisions(Enemy enemy)
+	        {
+	            foreach(Bullet bullet in _bullets)
+	            {
+	                if(bullet.GetBoundingBox().IntersectsWith(enemy.GetBoundingBox()))
+	                {
+	                    bullet.Dead = true;
+	                    enemy.OnCollision(bullet);
+	                }
+	            }
+	        }//End Bullet Methods
+
+//Effects Methods
+			public void AddExplosion(Vector position)
+	    	{
+	    		AnimatedSprite explosion = new AnimatedSprite();
+	    		explosion.Texture = _textureManager.Get("explosion");
+	    		explosion.SetAnimation(4,4);
+	    		explosion.SetPosition(position);
+	    		_effects.Add(explosion);
+	    	}//End Effects Methods	        	    	
+    	
+    }
+}
